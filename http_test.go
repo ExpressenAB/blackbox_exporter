@@ -22,6 +22,35 @@ import (
 	"time"
 )
 
+func TestHeaders(t *testing.T) {
+	tests := []struct {
+		UserAgent        string
+		ValidStatusCodes []int
+		ShouldSucceed    bool
+	}{
+		{"Chrome", []int{200}, true},
+		{"Safari", []int{400}, true},
+	}
+
+	for i, test := range tests {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.UserAgent() == "Safari" {
+				w.WriteHeader(400)
+			} else {
+				w.WriteHeader(200)
+			}
+		}))
+		defer ts.Close()
+		recorder := httptest.NewRecorder()
+		result := probeHTTP(ts.URL, recorder,
+			Module{Timeout: time.Second, HTTP: HTTPProbe{ValidStatusCodes: test.ValidStatusCodes, Header: map[string][]string{"User-Agent": []string{test.UserAgent}}}})
+		body := recorder.Body.String()
+		if result != test.ShouldSucceed {
+			t.Fatalf("Test %d had unexpected result: %s", i, body)
+		}
+	}
+}
+
 func TestHTTPStatusCodes(t *testing.T) {
 	tests := []struct {
 		StatusCode       int
